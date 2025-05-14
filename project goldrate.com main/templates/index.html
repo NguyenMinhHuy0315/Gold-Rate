@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <title>Gold Price Prediction</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Gold Price Prediction</h1>
+    
+    <h2>Recent Gold Prices</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Close Price (USD)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for data in historical_data %}
+        <tr>
+          <td>{{ data['Date'] }}</td> <!-- Already formatted as DD-MM-YYYY in Flask -->
+          <td>${{ data['Close'] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2>Gold Price Chart</h2>
+    <canvas id="goldChart" width="600" height="200"></canvas>
+
+    <h2>Predict Gold Price</h2>
+    <form method="POST" id="predictForm">
+      <label for="date">Enter a date:</label>
+      <input type="date" id="date" name="date" required>
+      <button type="submit">Predict</button>
+    </form>
+
+    <!-- Display prediction and error metrics -->
+    {% if prediction and date_input %}
+    <div class="prediction-result">
+      <h3>Predicted Gold Price on {{ date_input }}: ${{ prediction }}</h3>
+      {% if absolute_error is not none and percentage_error is not none %}
+      <p>Absolute Error: ${{ absolute_error }}</p>
+      <p>Percentage Error: {{ percentage_error }}%</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- JavaScript Code -->
+  <script>
+    fetch('/historical_data')
+      .then(response => response.json())
+      .then(data => {
+        const labels = data.map(item => {
+          if (!item.Date) return 'Invalid Date'; // Handle missing dates
+          let dateParts = item.Date.split('-');
+          if (dateParts.length !== 3) return 'Invalid Date'; // Ensure date has 3 parts
+
+          // Convert to Date object
+          let dateObj = new Date(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
+          if (isNaN(dateObj.getTime())) return 'Invalid Date'; // Handle bad date conversion
+
+          // Convert to DD-MM-YYYY format
+          let day = String(dateObj.getDate()).padStart(2, '0');
+          let month = String(dateObj.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+          let year = dateObj.getFullYear();
+          return `${day}-${month}-${year}`;
+        });
+
+        const prices = data.map(item => item.Close);
+
+        new Chart(document.getElementById('goldChart'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Gold Prices (USD)',
+              data: prices,
+              borderColor: 'gold',
+              backgroundColor: 'rgba(255, 223, 0, 0.2)',
+              fill: true,
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { title: { display: true, text: 'Date' } },
+              y: { title: { display: true, text: 'Price (USD)' } },
+            }
+          }
+        });
+      })
+      .catch(error => console.error('Error fetching data:', error));
+  </script>
+</body>
+</html>
